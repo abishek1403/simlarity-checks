@@ -8,50 +8,22 @@ import time
 import matplotlib.pyplot as plt
 from pyspark.sql import functions as F
 from pyspark.sql.types import ArrayType, DoubleType
-
-# Initialize Spark session
 spark = SparkSession.builder.master("local[*]").appName("Advanced Similarity Search").getOrCreate()
-
-# Load the dataset (replace with the correct file path)
 df = spark.read.csv("dataset.csv", header=True, inferSchema=True)
-
-# Show the first few records to verify the dataset
 df.show(5, truncate=False)
-
-# Text Preprocessing: Tokenization and TF-IDF
 tokenizer = Tokenizer(inputCol="description", outputCol="words")
 hashingTF = HashingTF(inputCol="words", outputCol="raw_features", numFeatures=1000)
 idf = IDF(inputCol="raw_features", outputCol="features")
-
-# Build the pipeline
 pipeline = Pipeline(stages=[tokenizer, hashingTF, idf])
-
-# Fit and transform the data
 model = pipeline.fit(df)
 result = model.transform(df)
-
-# Cache the result to speed up further operations
 result.cache()
-
-# Show the result with TF-IDF features
 result.select("product_id", "description", "features").show(5, truncate=False)
-
-# Define a UDF to convert sparse vector to dense vector
 def to_dense_udf(sparse_vector):
     return sparse_vector.toArray().tolist()
-
-# Register the UDF
 to_dense = F.udf(to_dense_udf, ArrayType(DoubleType()))
-
-# Apply the UDF to convert sparse vector to dense vector
 result = result.withColumn("dense_features", to_dense("features"))
-
-# Show the result with dense features
 result.select("product_id", "description", "dense_features").show(5, truncate=False)
-
-# Define similarity metrics
-
-# Cosine Similarity
 def cosine_similarity(df):
     similarities = []
     features = df.select("dense_features").rdd.map(lambda row: row[0]).collect()
@@ -61,8 +33,6 @@ def cosine_similarity(df):
                 similarity = float(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)))
                 similarities.append((i + 1, j + 1, similarity))
     return similarities
-
-# Euclidean Distance
 def euclidean_distance(df):
     distances = []
     features = df.select("dense_features").rdd.map(lambda row: row[0]).collect()
@@ -72,8 +42,6 @@ def euclidean_distance(df):
                 distance = float(np.linalg.norm(np.array(vec1) - np.array(vec2)))
                 distances.append((i + 1, j + 1, distance))
     return distances
-
-# Jaccard Similarity
 def jaccard_similarity(df):
     similarities = []
     features = df.select("dense_features").rdd.map(lambda row: row[0]).collect()
@@ -85,8 +53,6 @@ def jaccard_similarity(df):
                 similarity = intersection / union if union != 0 else 0
                 similarities.append((i + 1, j + 1, similarity))
     return similarities
-
-# Manhattan Distance
 def manhattan_distance(df):
     distances = []
     features = df.select("dense_features").rdd.map(lambda row: row[0]).collect()
@@ -96,8 +62,6 @@ def manhattan_distance(df):
                 distance = float(np.sum(np.abs(np.array(vec1) - np.array(vec2))))
                 distances.append((i + 1, j + 1, distance))
     return distances
-
-# Execute similarity algorithms and measure time
 start_time = time.time()
 cosine_sim = cosine_similarity(result)
 cosine_time = time.time() - start_time
@@ -117,8 +81,6 @@ start_time = time.time()
 manhattan_dist = manhattan_distance(result)
 manhattan_time = time.time() - start_time
 print("Manhattan Distance Time:", manhattan_time)
-
-# Plot execution times
 metrics = ['Cosine', 'Jaccard', 'Euclidean', 'Manhattan']
 times = [cosine_time, jaccard_time, euclidean_time, manhattan_time]
 
@@ -126,5 +88,5 @@ plt.bar(metrics, times, color=['blue', 'green', 'red', 'purple'])
 plt.ylabel('Execution Time (seconds)')
 plt.xlabel('Similarity Metrics')
 plt.title('Execution Time of Similarity Metrics')
-plt.savefig("similarity_metrics_time.png")  # Save the graph
-plt.show()  # Display the graph
+plt.savefig("similarity_metrics_time.png")  
+plt.show()  
